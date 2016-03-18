@@ -1,0 +1,5 @@
+# Example de liste de numéros blacklisté
+00000000; numéro blacklisté
+11111111; numéro blacklisté
+#77770711; numéro blacklisté
+#09885760; numéro blacklisté
