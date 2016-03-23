@@ -48,7 +48,7 @@ $_ENV['sd'] = "";
 	
 	if(!file_exists($conf))
     {
-         echo "The read of the configuration file has been stopped by sofie_alert_script (Xml Error).";
+         echo "The read of the configuration file has been stopped by sofie_sendsms_script (Xml Error).";
          exit;
     }
 	
@@ -113,7 +113,7 @@ $_ENV['sd'] = "";
 		
         if ($slh == '')
         {
-                echo "You need to specify your Os system in the configuration file. sofie_alert_script has been locked!\r\n";
+                echo "You need to specify your Os system in the configuration file. sofie_sendsms_script has been locked!\r\n";
                 CreateLockFile($_ENV['sid'], "1", $wbai);
         }
 
@@ -128,19 +128,19 @@ $_ENV['sd'] = "";
                 $_ENV['osname'] = "WINDOWS";
         }
 
-        if(file_exists($script_directory."sofie_alert_script.lck"))
+        if(file_exists($script_directory."sofie_sendsms_script.lck"))
         {
-                echo "An error has been found while the last batch. sofie_alert_script stopped!\r\n Please check you configuration file\r\n You have to delete the lock file in sofie_alert_script folder to restart this application\r\n";
+                echo "An error has been found while the last batch. sofie_sendsms_script stopped!\r\n Please check you configuration file\r\n You have to delete the lock file in sofie_sendsms_script folder to restart this application\r\n";
                 exit;
         }
 		
-    /*$lock_file = $_ENV['sd']."sofie_alert_script.lck";
+    $lock_file = $_ENV['sd']."sofie_sendsms_script.lck";
 		
     $lock_file_opened = fopen($lock_file, "a");
 		
     fwrite($lock_file_opened, $errorInfo);
 		
-    fclose($lock_file_opened);*/
+    fclose($lock_file_opened);
 
 
 	$_ENV['log'] .= "<".date("d-m-Y")." - ".date("H:i:s")."> Target OS : ".$_ENV['osname']."\r\n";
@@ -184,26 +184,28 @@ function sofie_sms_processing($dbObject,$gw_uri,$etat)
 	
 	    while($row=$_ENV['db']->fetch_array())
 		{
+			if($row['RECEIVER']=='NULL') continue;
 			$posts[]=$row;
 		}
-
-
-	    foreach($posts as $row)
-		{
-			$row['Content'];
-		}	
+			
 	    foreach($posts as $row)
 		{	
 			$gw_uri_params = "";
-
-			$sofie_NUMERO=$row['RECEIVER'];//Numero de telephone
-			$sofie_SMS_CONTENT=$row['CONTENT'];
 			
+			echo $row['RECEIVER']."\r\n";
+			
+			$sofie_NUMERO=$row['RECEIVER'];//Numero de telephone
+			
+			$sofie_SMS_CONTENT=$row['CONTENT'];
+
+			if($sofie_NUMERO='NUL') continue;		
+	
 			eval( "\$sms_content = \"$sofie_SMS_CONTENT\";" );
 			
 			echo $gw_uri_params .= "username=".$_ENV['gw_username']."&password=".$_ENV['gw_password']."&smsc=".$_ENV['gw_smsc']."&from=".$_ENV['sms_from']."&to=".$sofie_NUMERO."&text=".urlencode($sms_content);
 			
 			$local_gw_uri = $gw_uri_base.$gw_uri_params ;			
+
 
 			$send_state = file_get_contents($local_gw_uri,false);			
 
@@ -239,22 +241,31 @@ function sofie_sms_processing($dbObject,$gw_uri,$etat)
 				//continue;
 			}
 
-                                              	//$_ENV['log'] .="<".date("d-m-Y")." - ".date("H:i:s")."> Exception reçue : ',  $e->getMessage().\r\n";
+			//$_ENV['log'] .="<".date("d-m-Y")." - ".date("H:i:s")."> Exception reçue : ',  $e->getMessage().\r\n";
 
-                                                $log=$_ENV['log'];
+			$log=$_ENV['log'];
 
-                                                $script_directory = $_ENV['sd'];
+                        $script_directory = $_ENV['sd'];
 
-                                                Function_log($log, $script_directory);	
+                        Function_log($log, $script_directory);	
+
+			$lock_file = $_ENV['sd']."sofie_sendsms_script.lck";
+                        if (file_exists($lock_file))
+                        {
+                                unlink ($lock_file);
+                        }
 	
-	    }
+	
+	    	}
+
 	}
+	
 }
 
 function CreateLockFile($directory, $errorInfo,$wbai)
 {
 //Create a log file in the application folder 
-	$lock_file = $_ENV['sd']."sofie_alert_script.lck";
+	$lock_file = $_ENV['sd']."sofie_sendsms_script.lck";
 	if (file_exists($lock_file))
 	{
 		unlink ($lock_file);
@@ -332,7 +343,10 @@ function  Function_error_log($eventInfo, $script_directory)
 
 	$dbObject='v_sms_to_send';
 	
-	sofie_sms_processing($dbObject,$kannel_sendsms_uri,0);
+	for ($i = 0; $i < 12; ++$i) {
+		sofie_sms_processing($dbObject,$kannel_sendsms_uri,0);
+		sleep(5);
+	}
 	
 	$_ENV['log'] .= "<".date("d-m-Y")." - ".date("H:i:s")."> End of application\r\n";	
 
